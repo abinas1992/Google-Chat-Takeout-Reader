@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Folder Explorer with JSON Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .input-container {
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-weight: bold;
+			margin-bottm:4px;
+        }
+
+        input[type="text"], input[type="file"] {
+            padding: 10px;
+            width: 100%;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        .name-input {
+            margin-bottom: 10px;
+        }
+
+        .name-input label {
+            display: block;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .file-structure, .json-viewer {
+            border: 1px solid #ccc;
+            padding: 10px;
+            max-height: 450px;
+            overflow-y: auto;
+            flex-shrink: 0; /* Prevent from shrinking */
+			
+        }
+
+        .file-structure {
+            margin-right: 10px;
+            width: 35%;
+        }
+
+        .json-viewer {
+            width: 60%;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .folder-icon::before {
+            content: "\f07b";
+            font-family: FontAwesome;
+            margin-right: 5px;
+        }
+
+        .file-icon::before {
+            content: "\f15b";
+            font-family: FontAwesome;
+            margin-right: 5px;
+        }
+
+        .caret::before {
+            content: "\f0da";
+            font-family: FontAwesome;
+            margin-right: 5px;
+        }
+
+        .caret-down::before {
+            content: "\f0d7";
+            font-family: FontAwesome;
+            margin-right: 5px;
+        }
+
+        .nested {
+            display: none;
+        }
+
+        .active {
+            display: block;
+        }
+
+        .message-container {
+            max-width: 100%;
+            margin: 10px 0;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message {
+            border-radius: 10px;
+            padding: 10px;
+            margin: 5px;
+            max-width: 70%;
+            word-break: break-word;
+        }
+
+        .message.left {
+            float: left;
+            clear: both;
+            background-color: #d4edda; /* Light green background */
+        }
+
+        .message.right {
+            float: right;
+            clear: both;
+            background-color: #cce5ff; /* Light blue background */
+        }
+
+        .meta {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .text {
+            font-size: 16px;
+            color: #333;
+        }
+		.creator{
+			font-size:12px;
+			color:#111;
+		}
+
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+	<div style="width:100%;text-align:center">
+		<h3>Google Takeout Chat Message Reader</h3>
+	</div>
+	<div class="input-container">
+        <div class="name-input" style="width:30%">
+            <label for="name">Enter Your Name:</label>
+            <input type="text" id="txtuserNameID">
+        </div>
+		<div class="file-input" style="width:60%">
+			<label for="folderInput">Select Folder:</label>
+			<input type="file" id="folderInput" webkitdirectory directory multiple>
+		</div>
+		
+        
+    </div>
+    
+    <div class="container">
+        <div class="file-structure" id="fileStructure"></div>
+        <div class="json-viewer" id="jsonViewer"></div>
+    </div>
+
+    <script>
+        document.getElementById('folderInput').addEventListener('change', function(e) {
+            var files = e.target.files;
+            displayFileStructure(files);
+        });
+		
+		function openFileInNewTab(file) {
+            var fileType = file.type;
+			//alert(fileType)
+            if (fileType !== 'application/json') {
+                var fileURL = URL.createObjectURL(file);
+				//alert(fileURL);
+                window.open(fileURL);
+            } else {
+                displayJSON(file);
+            }
+        }
+
+        
+        function displayFileStructure(files, parentUl) {
+            parentUl = parentUl || document.getElementById('fileStructure');
+            parentUl.innerHTML = '';
+
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                var li = document.createElement('li');
+                var span = document.createElement('span');
+
+                span.classList.add(file.isDirectory ? 'folder-icon' : 'file-icon');
+                span.textContent = file.name;
+
+                li.appendChild(span);
+
+                if (file.isDirectory) {
+                    var ul = document.createElement('ul');
+                    ul.classList.add('nested');
+                    ul.style.display = 'none';
+                    li.appendChild(ul);
+                    li.classList.add('caret');
+                    li.addEventListener('click', function(e) {
+                        var ul = this.querySelector('ul');
+                        ul.classList.toggle('active');
+                        var caret = this.querySelector('.caret');
+                        caret.classList.toggle('caret-down');
+                        e.stopPropagation();
+                    });
+                    displayFileStructure(file, ul);
+                } else {
+                    li.addEventListener('click', function(file) {
+                        return function() {
+                            openFileInNewTab(file);
+                        }
+                    }(file));
+                }
+
+                parentUl.appendChild(li);
+            }
+        }
+
+        function displayJSON(file) {
+            var reader = new FileReader();
+            reader.onload = function() {
+                var jsonViewer = document.getElementById('jsonViewer');
+                jsonViewer.innerHTML = ''; // Clear previous content
+				
+				var userName = document.getElementById('txtuserNameID').value;
+
+                var messages = JSON.parse(reader.result).messages;
+
+                messages.forEach(function(message) {
+                    var messageDiv = document.createElement('div');
+                    messageDiv.classList.add('message');
+					if(message.creator.name == userName)
+					{
+					messageDiv.classList.add('right');
+					}
+					else
+					{
+					messageDiv.classList.add('left');
+					}
+
+                    var metaDiv = document.createElement('div');
+                    metaDiv.classList.add('meta', 'user-type-' + message.creator.user_type);
+					messageDiv.classList.add('creator');
+                    metaDiv.textContent = message.creator.name ;
+                    messageDiv.appendChild(metaDiv);
+
+                    var createdDateDiv = document.createElement('div');
+                    createdDateDiv.classList.add('meta');
+                    createdDateDiv.textContent = message.created_date;
+                    messageDiv.appendChild(createdDateDiv);
+
+                    var textDiv = document.createElement('div');
+                    textDiv.classList.add('text');
+                    textDiv.textContent = message.text;
+                    messageDiv.appendChild(textDiv);
+
+                    jsonViewer.appendChild(messageDiv);
+                });
+            }
+
+            reader.readAsText(file);
+        }
+</script>
+</body>
+</html>
